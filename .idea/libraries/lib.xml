@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="lib">
+    <CLASSES>
+      <root url="file://$PROJECT_DIR$/../../../../AWS Hadoop/AWS/AltmetricDataProcessing/Java/json-java-processing/lib" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="file://$PROJECT_DIR$/../../../../AWS Hadoop/AWS/AltmetricDataProcessing/Java/json-java-processing/lib" />
+    </SOURCES>
+    <jarDirectory url="file://$PROJECT_DIR$/../../../../AWS Hadoop/AWS/AltmetricDataProcessing/Java/json-java-processing/lib" recursive="false" />
+    <jarDirectory url="file://$PROJECT_DIR$/../../../../AWS Hadoop/AWS/AltmetricDataProcessing/Java/json-java-processing/lib" recursive="false" type="SOURCES" />
+  </library>
+</component>
