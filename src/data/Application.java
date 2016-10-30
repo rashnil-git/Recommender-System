@@ -1,4 +1,4 @@
-package data.loader;
+package data;
 
 import org.apache.commons.configuration2.INIConfiguration;
 import org.apache.commons.configuration2.SubnodeConfiguration;
