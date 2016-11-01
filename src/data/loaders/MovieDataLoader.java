@@ -7,9 +7,13 @@ package data.loaders;
 import data.*;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
+import org.apache.spark.api.java.function.PairFunction;
+import org.joda.time.LocalDateTime;
 import scala.Tuple2;
 import scala.Tuple3;
+import scala.collection.Iterable;
 
 import java.io.File;
 import java.io.IOException;
@@ -97,13 +101,8 @@ import java.util.*;
 
         }
 
-        public JavaPairRDD<Long,Ratings> loadRatingsData(Application as)
+        public JavaPairRDD<Long, java.lang.Iterable<Ratings>> loadRatingsData(Application as)
         {
-            long movieID;
-
-            Map<Long,Ratings> ratings_map =new HashMap<Long, Ratings>();
-
-            ArrayList<Tuple3<Long,Double,Long>> ratings_list;
 
             String ratings_path=this.dataDirectory+File.separator+this.ratingData;
 
@@ -111,41 +110,31 @@ import java.util.*;
 
             JavaRDD<String> ratings_data_rdd= ratings_file_rdd.mapPartitionsWithIndex(_header,false);
 
-            List<String> ratings_data =ratings_data_rdd.collect();
+
+            JavaPairRDD<Long,Ratings> ratings_rdd  = ratings_data_rdd.mapToPair(new PairFunction<String, Long, Ratings>() {
+                @Override
+                public Tuple2<Long, Ratings> call(String s) throws Exception {
+                    long movieID;
+
+                    String rat_list_string[] = s.split(",");
+                    movieID=Long.valueOf(rat_list_string[1]);
+                    long userID= Long.valueOf(rat_list_string[0]);
+                    double ratings=Double.valueOf(rat_list_string[2]);
+                    long timestamp =Long.valueOf(rat_list_string[3]);
+
+                   // ArrayList ratings_list =new ArrayList<Tuple3<Long, Double, Long>>();
+                    //ratings_list.add(new Tuple3<Long, Double, Long>(userID,ratings,timestamp));
 
 
-            for(int rat_data_i=0;rat_data_i<ratings_data.size();rat_data_i++) {
+                    Ratings _ratings=new Ratings(movieID,userID,ratings,timestamp);
 
-                ratings_list=new ArrayList<Tuple3<Long,Double,Long>>();
+                    return (new Tuple2<Long,Ratings>(movieID,_ratings));
+                }
+            });
 
-                String rat_list_string[] = ratings_data.get(rat_data_i).split(",");
+            JavaPairRDD<Long, java.lang.Iterable<Ratings>> final_ratings_rdd =ratings_rdd.groupByKey();
 
-                movieID=Long.valueOf(rat_list_string[0]);
-                long userID= Long.valueOf(rat_list_string[0]);
-                double ratings=Double.valueOf(rat_list_string[2]);
-                long timestamp =Long.valueOf(rat_list_string[3]);
-
-                ratings_list.add(new Tuple3<Long, Double, Long>(userID,ratings,timestamp));
-
-                Ratings _ratings=new Ratings(movieID,ratings_list);
-
-                ratings_map.put(movieID,_ratings);
-
-            }
-
-            ArrayList ratings_map_list = new ArrayList(ratings_map.entrySet());
-
-            ArrayList<Tuple2<Long,Ratings>> ratings_tuple_list = new ArrayList<Tuple2<Long,Ratings>>();
-            Iterator<Map.Entry<Long,Ratings>> _iter = ratings_map_list.iterator();
-            while (_iter.hasNext()) {
-                Map.Entry<Long,Ratings> _value = _iter.next();
-                ratings_tuple_list.add(new Tuple2<Long,Ratings>(_value.getKey(), _value.getValue()));
-            }
-
-
-            JavaPairRDD<Long,Ratings> ratings_rdd =as.getSparkContext().parallelizePairs(ratings_tuple_list);
-
-            return ratings_rdd;
+            return final_ratings_rdd;
 
             }
 
@@ -229,7 +218,7 @@ import java.util.*;
         {
             long movieID;
             long imdbID;
-            long tmdbID;
+           // long tmdbID;
             Map<Long,Links> link_map=new HashMap<Long, Links>();
 
 
@@ -294,23 +283,27 @@ import java.util.*;
                                                        ,_movies
                                                        ,_ratings);
 
+           System.out.println(LocalDateTime.now());
 
            JavaPairRDD<Long,Movie> movies_rdd=_loader.loadMovieData(as);
-
            System.out.println(movies_rdd.count());
 
+           System.out.println(LocalDateTime.now());
+
            JavaPairRDD<Long,UserTags> tags_rdd=_loader.loadUserTagData(as);
+           System.out.println(tags_rdd.count());
 
-            System.out.println(tags_rdd.count());
+           System.out.println(LocalDateTime.now());
 
-            JavaPairRDD<Long,Links> link_rdd=_loader.loadIMDBLinkData(as);
+           JavaPairRDD<Long,Links> link_rdd=_loader.loadIMDBLinkData(as);
+           System.out.println(link_rdd.count());
 
-            System.out.println(link_rdd.count());
+           System.out.println(LocalDateTime.now());
 
-            JavaPairRDD<Long,Ratings> ratings_rdd=_loader.loadRatingsData(as);
+           JavaPairRDD<Long, java.lang.Iterable<Ratings>> ratings_rdd=_loader.loadRatingsData(as);
+           System.out.println(ratings_rdd.count());
 
-            System.out.println(ratings_rdd.count());
-
+           System.out.println(LocalDateTime.now());
         }
 
     }

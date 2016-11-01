@@ -11,14 +11,32 @@ import java.util.ArrayList;
 public class Ratings implements Serializable {
 
     private long movieID;
-    private ArrayList<Tuple3<Long,Double,Long>> ratings;
+    private long userID;
+    private double ratings;
+    private long timestamp;
+    //ArrayList<Tuple3<Long,Double,Long>> ratings;
 
-    public Ratings(long movieID,ArrayList<Tuple3<Long, Double, Long>> ratings) {
-        this.ratings = ratings;
+
+    public Ratings(long movieID, long userID, double ratings, long timestamp) {
         this.movieID = movieID;
+        this.userID = userID;
+        this.ratings = ratings;
+        this.timestamp = timestamp;
     }
 
-    public ArrayList<Tuple3<Long, Double, Long>> getRatings() {
+    public long getMovieID() {
+        return movieID;
+    }
+
+    public long getUserID() {
+        return userID;
+    }
+
+    public double getRatings() {
         return ratings;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
     }
 }
