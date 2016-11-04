@@ -10,6 +10,7 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
+import org.apache.spark.mllib.recommendation.MatrixFactorizationModel;
 import org.joda.time.LocalDateTime;
 import scala.Tuple2;
 import scala.Tuple3;
@@ -101,7 +102,7 @@ import java.util.*;
 
         }
 
-        public JavaPairRDD<Long, java.lang.Iterable<Ratings>> loadRatingsData(Application as)
+        public JavaPairRDD<Long,Ratings> loadRatingsData(Application as)
         {
 
             String ratings_path=this.dataDirectory+File.separator+this.ratingData;
@@ -132,9 +133,9 @@ import java.util.*;
                 }
             });
 
-            JavaPairRDD<Long, java.lang.Iterable<Ratings>> final_ratings_rdd =ratings_rdd.groupByKey();
+        //    JavaPairRDD<Long, java.lang.Iterable<Ratings>> final_ratings_rdd =ratings_rdd.groupByKey();
 
-            return final_ratings_rdd;
+            return ratings_rdd;
 
             }
 
@@ -300,10 +301,25 @@ import java.util.*;
 
            System.out.println(LocalDateTime.now());
 
-           JavaPairRDD<Long, java.lang.Iterable<Ratings>> ratings_rdd=_loader.loadRatingsData(as);
+           JavaPairRDD<Long, Ratings> ratings_rdd=_loader.loadRatingsData(as);
            System.out.println(ratings_rdd.count());
 
            System.out.println(LocalDateTime.now());
+
+
+          MatrixBuilding _mat =new MatrixBuilding(ratings_rdd);
+          _mat.setSpark_ratings_rdd(_mat.loadRatingRDD());
+
+          _mat.buildModel(10,10,0.01);
+
+          double _mse =_mat.modelEvaluation();
+
+            System.out.println("Mean Square Error :"+_mse);
+
+           double _rmse =Math.sqrt(_mse);
+
+            System.out.println("Root Mean Square Error :"+_rmse);
+
         }
 
     }
