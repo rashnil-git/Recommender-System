@@ -308,17 +308,16 @@ import java.util.*;
 
 
           MatrixBuilding _mat =new MatrixBuilding(ratings_rdd);
-          _mat.setSpark_ratings_rdd(_mat.loadRatingRDD());
+          //_mat.setSpark_ratings_rdd(_mat.loadRatingRDD());
 
           _mat.buildModel(10,10,0.01);
 
           double _mse =_mat.modelEvaluation();
 
-            System.out.println("Mean Square Error :"+_mse);
+          System.out.println("Root Mean Square Error :"+_mse);
 
-           double _rmse =Math.sqrt(_mse);
+            _mat.recommendMovies();
 
-            System.out.println("Root Mean Square Error :"+_rmse);
 
         }
 
