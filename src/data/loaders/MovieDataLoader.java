@@ -10,11 +10,14 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
+import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.mllib.recommendation.MatrixFactorizationModel;
+import org.apache.spark.mllib.recommendation.Rating;
 import org.joda.time.LocalDateTime;
 import scala.Tuple2;
 import scala.Tuple3;
 import scala.collection.Iterable;
+import spire.math.QuickSort;
 
 import java.io.File;
 import java.io.IOException;
@@ -117,11 +120,11 @@ import java.util.*;
                 public Tuple2<Long, Ratings> call(String s) throws Exception {
                     long movieID;
 
-                    String rat_list_string[] = s.split(",");
-                    movieID=Long.valueOf(rat_list_string[1]);
-                    long userID= Long.valueOf(rat_list_string[0]);
-                    double ratings=Double.valueOf(rat_list_string[2]);
-                    long timestamp =Long.valueOf(rat_list_string[3]);
+                    String rate_list_string[] = s.split(",");
+                    movieID=Long.valueOf(rate_list_string[1]);
+                    long userID= Long.valueOf(rate_list_string[0]);
+                    double ratings=Double.valueOf(rate_list_string[2]);
+                    long timestamp =Long.valueOf(rate_list_string[3]);
 
                    // ArrayList ratings_list =new ArrayList<Tuple3<Long, Double, Long>>();
                     //ratings_list.add(new Tuple3<Long, Double, Long>(userID,ratings,timestamp));
@@ -272,24 +275,28 @@ import java.util.*;
         {
            Application as=new Application();
 
-           String _directory ="datafiles";
-           String _movies="movies.csv";
+
+            //train Model using small data
+            //choose rank between the below four options.
+            int[] list ={8,6,4,10};
+
+           String _directory ="datafiles/train_dataset";
+           final String _movies="movies.csv";
            String _ratings="ratings.csv";
            String _tags="tags.csv";
            String _links="links.csv";
 
-           MovieDataLoader _loader =new MovieDataLoader(_directory
+           MovieDataLoader train_loader =new MovieDataLoader(_directory
                                                        ,_links
                                                        ,_tags
                                                        ,_movies
                                                        ,_ratings);
 
-           System.out.println(LocalDateTime.now());
 
-           JavaPairRDD<Long,Movie> movies_rdd=_loader.loadMovieData(as);
-           System.out.println(movies_rdd.count());
+           JavaPairRDD<Long,Movie> train_movies_rdd=train_loader.loadMovieData(as);
+           System.out.println("Movies :"+train_movies_rdd.count());
 
-           System.out.println(LocalDateTime.now());
+           /*System.out.println(LocalDateTime.now());
 
            JavaPairRDD<Long,UserTags> tags_rdd=_loader.loadUserTagData(as);
            System.out.println(tags_rdd.count());
@@ -299,25 +306,107 @@ import java.util.*;
            JavaPairRDD<Long,Links> link_rdd=_loader.loadIMDBLinkData(as);
            System.out.println(link_rdd.count());
 
-           System.out.println(LocalDateTime.now());
+           System.out.println(LocalDateTime.now());*/
 
-           JavaPairRDD<Long, Ratings> ratings_rdd=_loader.loadRatingsData(as);
-           System.out.println(ratings_rdd.count());
+           JavaPairRDD<Long, Ratings> train_ratings_rdd=train_loader.loadRatingsData(as);
+           System.out.println("Ratings: "+train_ratings_rdd.count());
 
-           System.out.println(LocalDateTime.now());
+           //System.out.println(LocalDateTime.now());
+          ModelTraining _train=new ModelTraining(train_ratings_rdd);
+          String score[] =_train.returnBestRank(list).split(",");
+
+          System.out.println("BEST RMSE on Train Data"+score[0]+"BEST Rank:"+score[1]);
+
+         //Use the best rank with lowest error and build model using bigger data set.
+            String large_directory ="datafiles";
+
+            MovieDataLoader main_loader =new MovieDataLoader(large_directory
+                    ,_links
+                    ,_tags
+                    ,_movies
+                    ,_ratings);
 
 
-          MatrixBuilding _mat =new MatrixBuilding(ratings_rdd);
+            JavaPairRDD<Long, Ratings> ratings_rdd=main_loader.loadRatingsData(as);
+            System.out.println("Ratings: "+train_ratings_rdd.count());
+
+            //ModelBuilding _mat =new ModelBuilding(ratings_rdd);
           //_mat.setSpark_ratings_rdd(_mat.loadRatingRDD());
 
-          _mat.buildModel(10,10,0.01);
+         //_mat.buildModel(Integer.parseInt(score[1]),20,0.01);
 
-          double _mse =_mat.modelEvaluation();
 
-          System.out.println("Root Mean Square Error :"+_mse);
+          //double _rmse =_mat.modelEvaluation();
 
-            _mat.recommendMovies();
+         // System.out.println("Root Mean Square Error :"+_rmse);
 
+            //_mat.recommendMovies();
+
+          //  _mat.saveModel(as);
+
+
+            List<Tuple3<Integer,Integer,Double>> new_user_ratings =new ArrayList<Tuple3<Integer, Integer, Double>>();
+            new_user_ratings.add(new Tuple3<Integer, Integer, Double>(0,260, (double) 4)); // Star Wars (1977)
+            new_user_ratings.add(new Tuple3<Integer, Integer, Double>(0, 1, (double) 3)); // Toy Story (1995)
+            new_user_ratings.add(new Tuple3<Integer, Integer, Double>(0, 16, (double) 3)); // Casino (1995)
+            new_user_ratings.add(new Tuple3<Integer, Integer, Double>(0, 25, (double) 4)); // Leaving Las Vegas (1995)
+            new_user_ratings.add(new Tuple3<Integer, Integer, Double>(0, 32,(double) 4)); // Twelve Monkeys (a.k.a. 12 Monkeys) (1995)
+            new_user_ratings.add(new Tuple3<Integer, Integer, Double>(0, 335,(double) 1)); // Flintstones, The (1994)
+            new_user_ratings.add(new Tuple3<Integer, Integer, Double>(0, 379,(double) 1)); // Timecop (1994)
+            new_user_ratings.add(new Tuple3<Integer, Integer, Double>(0, 296,(double) 3)); // Pulp Fiction (1994)
+            new_user_ratings.add(new Tuple3<Integer, Integer, Double>(0, 858,(double) 5)); // Godfather, The (1972)
+            new_user_ratings.add(new Tuple3<Integer, Integer, Double>(0, 50,(double) 4));// Usual Suspects, The (1995)
+
+
+            JavaRDD<Tuple3<Integer,Integer,Double>> new_user_ratings_rdd = as.getSparkContext().parallelize(new_user_ratings);
+
+            JavaRDD<Rating> new_rating_rdd =new_user_ratings_rdd.map(new Function<Tuple3<Integer, Integer, Double>, Rating>() {
+                @Override
+                public Rating call(Tuple3<Integer, Integer, Double> newRatings) throws Exception {
+                    return new Rating(newRatings._1(),newRatings._2(),newRatings._3());
+                }
+            });
+
+            JavaRDD<Rating> old_rating_rdd =ratings_rdd.map(new Function<Tuple2<Long, Ratings>, Rating>() {
+                @Override
+                public Rating call(Tuple2<Long, Ratings> ratingsTuple2) throws Exception {
+                    return new Rating((int) ratingsTuple2._2().getUserID(),(int)ratingsTuple2._2().getMovieID(),ratingsTuple2._2().getRatings());
+                }
+            });
+
+
+            JavaRDD<Rating> combined_ratings_rdd=old_rating_rdd.union(new_rating_rdd);
+
+
+            ModelBuilding _mat =new ModelBuilding(combined_ratings_rdd);
+            //_mat.setSpark_ratings_rdd(_mat.loadRatingRDD());
+
+            _mat.buildModel(Integer.parseInt(score[1]),20,0.01);
+
+
+            double _rmse =_mat.modelEvaluation();
+
+            System.out.println("Root Mean Square Error :"+_rmse);
+
+            //JavaRDD<Rating> filtered_rdd=  old_rating_rdd.subtract(new_rating_rdd);
+
+            JavaRDD<Tuple2<Object,Rating[]>> recommended_movies=_mat.recommendMovies(0);
+
+            System.out.println("Back from Recommend Movies"+recommended_movies.count());
+
+            /*recommended_movies.foreach(new VoidFunction<Tuple2<Object, Rating[]>>() {
+                @Override
+                public void call(Tuple2<Object, Rating[]> objectTuple2) throws Exception {
+                    System.out.println("User"+objectTuple2._1);
+
+                    for(int movies_i=0;movies_i<objectTuple2._2().length;movies_i++)
+                    {
+                        System.out.println(objectTuple2._2.toString());
+                    }
+
+
+                }
+            });*/
 
         }
 

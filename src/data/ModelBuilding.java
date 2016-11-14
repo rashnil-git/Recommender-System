@@ -14,6 +14,7 @@ import org.apache.spark.mllib.recommendation.Rating;
 
 import java.io.Serializable;
 import java.lang.*;
+import java.util.ArrayList;
 import java.util.List;
 
 import scala.Tuple2;
@@ -22,7 +23,7 @@ import scala.Tuple2$;
 /**
  * Created by Rash on 04-11-2016.
  */
-public class MatrixBuilding implements Serializable{
+public class ModelBuilding implements Serializable{
 
     //private JavaPairRDD<Long,Ratings> ratings_rdd;
     private JavaRDD<Rating> spark_ratings_rdd;
@@ -30,19 +31,19 @@ public class MatrixBuilding implements Serializable{
     private JavaRDD<Rating> test_set_rdd;
     private MatrixFactorizationModel model;
 
-    public MatrixBuilding(JavaPairRDD<Long, Ratings> ratings_rdd) {
+    public ModelBuilding(JavaRDD<Rating> ratings_rdd) {
 
-        JavaRDD<Rating> ml_rating_rdd = ratings_rdd.map(new Function<Tuple2<Long, Ratings>, Rating>() {
+       /* JavaRDD<Rating> ml_rating_rdd = ratings_rdd.map(new Function<Tuple2<Long, Ratings>, Rating>() {
             @Override
             public Rating call(Tuple2<Long, Ratings> tupleRating) throws Exception {
 
 
                 return new Rating((int) tupleRating._2().getUserID(), (int) tupleRating._2().getMovieID(), tupleRating._2().getRatings());
             }
-        });
+        });*/
 
         //Assign to spark ratings rdd object and cache in this rdd.
-        this.spark_ratings_rdd = ml_rating_rdd;
+        this.spark_ratings_rdd = ratings_rdd;
         this.spark_ratings_rdd.cache();
 
     }
@@ -65,6 +66,8 @@ public class MatrixBuilding implements Serializable{
         MatrixFactorizationModel _model = ALS.train(this.training_set_rdd.rdd(),rank,numIterations,regFactor);
 
         this.model = _model;
+
+
     }
 
 
@@ -115,7 +118,42 @@ public class MatrixBuilding implements Serializable{
 
     }
 
-    public void recommendMovies()
+    public JavaRDD<Tuple2<Object,Rating[]>> recommendMovies(final Integer user_id) {
+
+
+        JavaRDD<Tuple2<Object,Rating[]>> recommendations= this.model.recommendProductsForUsers(10).toJavaRDD();
+
+
+
+
+        JavaRDD<Tuple2<Object,Rating[]>> filtered_recommendations=recommendations.filter(new Function<Tuple2<Object, Rating[]>, Boolean>() {
+            @Override
+            public Boolean call(Tuple2<Object, Rating[]> recommend) throws Exception {
+                    return (recommend._1()==user_id);
+
+            }
+        });
+
+
+        return filtered_recommendations;
+
+
+       /* JavaPairRDD<Tuple2<Integer,Integer>,Double> predicted_rdd=JavaPairRDD.fromJavaRDD(
+                this.model.predict(JavaRDD.toRDD(user_rating_rdd)).toJavaRDD().map(
+                        new Function<Rating, Tuple2<Tuple2<Integer,Integer>,Double>>() {
+                            public Tuple2<Tuple2<Integer,Integer>,Double> call(Rating rating){
+                                return new Tuple2<Tuple2<Integer,Integer>,Double>
+                                        (new Tuple2<Integer,Integer>(rating.user(),rating.product()),rating.rating());
+                            }
+                        }));*/
+
+
+
+    }
+
+
+
+   /* public void recommendMovies()
     {
         //creaing rdd with movie id and rating object.
         JavaPairRDD<Integer,Rating> movie_ratings=this.spark_ratings_rdd.mapToPair(new PairFunction<Rating, Integer, Rating>() {
@@ -160,7 +198,7 @@ public class MatrixBuilding implements Serializable{
         //Join the two rdd into one
         JavaPairRDD<Integer,Tuple2<Double,Integer>> movie_combined_ratings=movie_ratings_sum.join(movie_ratings_count);
 
-     /*   //Form RDD with movie and average rating.
+        //Form RDD with movie and average rating.
         JavaPairRDD<Integer,Double> movie_avg_rating =movie_combined_ratings.mapToPair(new PairFunction<Tuple2<Integer, Tuple2<Double, Integer>>, Integer, Double>() {
             @Override
             public Tuple2<Integer, Double> call(Tuple2<Integer, Tuple2<Double, Integer>> integerTuple2Tuple2) throws Exception {
@@ -169,10 +207,10 @@ public class MatrixBuilding implements Serializable{
 
                 return new Tuple2<Integer, Double>(integerTuple2Tuple2._1,avg_rating);
             }
-        });*/
+        });
 
-        //Form RDD with movie and average rating.
-        JavaPairRDD<Integer,Tuple2<Double,Integer>> movie_avg_rating =movie_combined_ratings.
+        Form RDD with movie and average rating.
+        //JavaPairRDD<Integer,Tuple2<Double,Integer>> movie_avg_rating =movie_combined_ratings.
                 mapToPair(new PairFunction<Tuple2<Integer, Tuple2<Double, Integer>>, Integer, Tuple2<Double, Integer>>() {
             @Override
             public Tuple2<Integer, Tuple2<Double, Integer>> call(Tuple2<Integer, Tuple2<Double, Integer>> tuple) throws Exception {
@@ -183,14 +221,25 @@ public class MatrixBuilding implements Serializable{
         });
 
 
-
+           // movie_avg_rating.
                 System.out.println("Average Rating :" + movie_avg_rating.take(10));
 
-      //  List<Movie> recommended_movies=null;
-
-       // ret urn recommended_movies;
     }
 
+
+    public void saveModel(Application as)
+    {
+        this.model.save(as.getSparkContext().sc(), "model/CollaborativeFilters/");
+
+    }
+
+    private void loadModel(Application as)
+    {
+        MatrixFactorizationModel sameModel = MatrixFactorizationModel.load(as.getSparkContext().sc(),
+                "model/CollaborativeFilters/");
+
+        this.model= sameModel;
+    }*/
 
 
 }
