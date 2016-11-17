@@ -5,6 +5,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 
 /**
  * Created by Rash on 29-10-2016.
+ * Initialize Spark Context and Initialize Application
  */
 
 public class Application {

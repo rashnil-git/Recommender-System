@@ -7,17 +7,17 @@ import java.util.*;
  */
 public class Movie implements Serializable{
 
-    private long movieID;
+    private Integer movieID;
     private String movieName;
     private List<String> genreList;
 
-    public Movie(long movieID, String movieName,List<String> genreList) {
+    public Movie(Integer movieID, String movieName,List<String> genreList) {
         this.movieID = movieID;
         this.genreList = genreList;
         this.movieName = movieName;
     }
 
-    public long getMovieID() {
+    public Integer getMovieID() {
         return movieID;
     }
 

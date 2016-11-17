@@ -22,10 +22,10 @@ import scala.Tuple2$;
 
 /**
  * Created by Rash on 04-11-2016.
+ * Take the large dataset of 22 millions rating and build the recommendations for new user
  */
-public class ModelBuilding implements Serializable{
+public class ModelBuilding implements Serializable {
 
-    //private JavaPairRDD<Long,Ratings> ratings_rdd;
     private JavaRDD<Rating> spark_ratings_rdd;
     private JavaRDD<Rating> training_set_rdd;
     private JavaRDD<Rating> test_set_rdd;
@@ -33,79 +33,67 @@ public class ModelBuilding implements Serializable{
 
     public ModelBuilding(JavaRDD<Rating> ratings_rdd) {
 
-       /* JavaRDD<Rating> ml_rating_rdd = ratings_rdd.map(new Function<Tuple2<Long, Ratings>, Rating>() {
-            @Override
-            public Rating call(Tuple2<Long, Ratings> tupleRating) throws Exception {
-
-
-                return new Rating((int) tupleRating._2().getUserID(), (int) tupleRating._2().getMovieID(), tupleRating._2().getRatings());
-            }
-        });*/
-
         //Assign to spark ratings rdd object and cache in this rdd.
         this.spark_ratings_rdd = ratings_rdd;
         this.spark_ratings_rdd.cache();
 
     }
 
-
-    public void buildModel(int rank,int numIterations,double regFactor)
-    {
+    //Build Model using the large dataset with new user ratings
+    public void buildModel(int rank, int numIterations, double regFactor) {
         //set the fraction for test and training set.
-        double test_fraction=0.4;
-        double test_frac[]={1-test_fraction,test_fraction};
+        double test_fraction = 0.4;
+        double test_frac[] = {1 - test_fraction, test_fraction};
 
         //split the ratings rdd into training and test based on test fraction.
-        JavaRDD<Rating>[] split_rdds =this.spark_ratings_rdd.randomSplit(test_frac);
+        JavaRDD<Rating>[] split_rdds = this.spark_ratings_rdd.randomSplit(test_frac);
 
         //assign the respective partition to the test/train rdd
-        this.training_set_rdd =split_rdds[0];
-        this.test_set_rdd =split_rdds[1];
+        this.training_set_rdd = split_rdds[0];
+        this.test_set_rdd = split_rdds[1];
 
         //build model using training data
-        MatrixFactorizationModel _model = ALS.train(this.training_set_rdd.rdd(),rank,numIterations,regFactor);
+        MatrixFactorizationModel _model = ALS.train(this.training_set_rdd.rdd(), rank, numIterations, regFactor);
 
         this.model = _model;
-
 
     }
 
 
-    public double modelEvaluation()
-    {   //Variable to store Mean Square Error
-        double MSE=0;
+    public double modelEvaluation() {   //Variable to store Mean Square Error
+        double MSE = 0;
 
         //create userMovie RDD using the test data set. This RDD contains just the user id and movie id.
-        JavaRDD<Tuple2<Object,Object>> userMovies =this.test_set_rdd.map(new Function<Rating, Tuple2<Object, Object>>() {
+        JavaRDD<Tuple2<Object, Object>> userMovies = this.test_set_rdd.map(new Function<Rating, Tuple2<Object, Object>>() {
             @Override
             public Tuple2<Object, Object> call(Rating rating) throws Exception {
-                return new Tuple2<Object, Object>(rating.user(),rating.product());
+                return new Tuple2<Object, Object>(rating.user(), rating.product());
             }
         });
 
         //Predict the ratings for user id and movie id combination from the test set using our model.
-        JavaPairRDD<Tuple2<Integer,Integer>,Double> predicted_rdd=JavaPairRDD.fromJavaRDD(
+        JavaPairRDD<Tuple2<Integer, Integer>, Double> predicted_rdd = JavaPairRDD.fromJavaRDD(
                 this.model.predict(JavaRDD.toRDD(userMovies)).toJavaRDD().map(
-                        new Function<Rating, Tuple2<Tuple2<Integer,Integer>,Double>>() {
-                    public Tuple2<Tuple2<Integer,Integer>,Double> call(Rating rating){
-                        return new Tuple2<Tuple2<Integer,Integer>,Double>
-                                (new Tuple2<Integer,Integer>(rating.user(),rating.product()),rating.rating());
-                    }
-                }));
+                        new Function<Rating, Tuple2<Tuple2<Integer, Integer>, Double>>() {
+                            public Tuple2<Tuple2<Integer, Integer>, Double> call(Rating rating) {
+                                return new Tuple2<Tuple2<Integer, Integer>, Double>
+                                        (new Tuple2<Integer, Integer>(rating.user(), rating.product()), rating.rating());
+                            }
+                        }));
 
         //create RDD with Actual and Predicted Ratings for the same user ID and Movie ID in Test data set.
-        JavaRDD<Tuple2<Double,Double>> predict_rating_rdd =JavaPairRDD.fromJavaRDD(this.test_set_rdd.map
-                (new Function<Rating, Tuple2<Tuple2<Integer,Integer>,Double>>() {
-            @Override
-            public Tuple2<Tuple2<Integer,Integer>,Double> call(Rating rating){
-                return new Tuple2<Tuple2<Integer,Integer>,Double>
-                        (new Tuple2<Integer,Integer>(rating.user(),rating.product()),rating.rating());
-            }
-        })).join(predicted_rdd).values();
+        JavaRDD<Tuple2<Double, Double>> predict_rating_rdd = JavaPairRDD.fromJavaRDD(this.test_set_rdd.map
+                (new Function<Rating, Tuple2<Tuple2<Integer, Integer>, Double>>() {
+                    @Override
+                    public Tuple2<Tuple2<Integer, Integer>, Double> call(Rating rating) {
+                        return new Tuple2<Tuple2<Integer, Integer>, Double>
+                                (new Tuple2<Integer, Integer>(rating.user(), rating.product()), rating.rating());
+                    }
+                })).join(predicted_rdd).values();
 
 
         //Calculate the mean sqaure error comparing the predicted ratings vs the actual ratings.
-         MSE = JavaDoubleRDD.fromRDD(predict_rating_rdd.map(
+        MSE = JavaDoubleRDD.fromRDD(predict_rating_rdd.map(
                 new Function<Tuple2<Double, Double>, Object>() {
                     public Object call(Tuple2<Double, Double> pair) {
                         Double err = pair._1() - pair._2();
@@ -118,24 +106,75 @@ public class ModelBuilding implements Serializable{
 
     }
 
-    public JavaRDD<Tuple2<Object,Rating[]>> recommendMovies(final Integer user_id) {
+    public JavaPairRDD<Integer, Double> recommendMovies(JavaRDD<Tuple2<Object, Object>> unrated_movies_rdd) {
+
+        JavaPairRDD<Tuple2<Integer, Integer>, Double> predicted_rdd = JavaPairRDD.fromJavaRDD(
+                this.model.predict(JavaRDD.toRDD(unrated_movies_rdd)).toJavaRDD().map(
+                        new Function<Rating, Tuple2<Tuple2<Integer, Integer>, Double>>() {
+                            public Tuple2<Tuple2<Integer, Integer>, Double> call(Rating rating) {
+                                return new Tuple2<Tuple2<Integer, Integer>, Double>
+                                        (new Tuple2<Integer, Integer>(rating.user(), rating.product()), rating.rating());
+                            }
+                        }));
 
 
-        JavaRDD<Tuple2<Object,Rating[]>> recommendations= this.model.recommendProductsForUsers(10).toJavaRDD();
-
-
-
-
-        JavaRDD<Tuple2<Object,Rating[]>> filtered_recommendations=recommendations.filter(new Function<Tuple2<Object, Rating[]>, Boolean>() {
+        JavaPairRDD<Integer, Double> predicted_filter_rdd = predicted_rdd.mapToPair(new PairFunction<Tuple2<Tuple2<Integer, Integer>, Double>, Integer, Double>() {
             @Override
-            public Boolean call(Tuple2<Object, Rating[]> recommend) throws Exception {
-                    return (recommend._1()==user_id);
+            public Tuple2<Integer, Double> call(Tuple2<Tuple2<Integer, Integer>, Double> predicted) throws Exception {
+                if (predicted._2() > 3.5) {
+                    return new Tuple2<Integer, Double>(predicted._1()._2(), predicted._2());
+                } else {
+                    return null;
+                }
 
             }
         });
 
+        JavaPairRDD<Integer, Double> flatened_predicted_rdd = predicted_filter_rdd.filter(new Function<Tuple2<Integer, Double>, Boolean>() {
+            @Override
+            public Boolean call(Tuple2<Integer, Double> integerDoubleTuple2) throws Exception {
+                if (integerDoubleTuple2 == null) {
+                    return false;
+                } else {
+                    return true;
+                }
 
-        return filtered_recommendations;
+            }
+        });
+
+        return flatened_predicted_rdd;
+
+    }
+
+}
+
+
+
+
+
+
+
+
+        /*JavaPairRDD<Integer,Rating> movie_ratings=this.spark_ratings_rdd.mapToPair(new PairFunction<Rating, Integer, Rating>() {
+            @Override
+            public Tuple2<Integer,Rating> call(Rating rating) throws Exception {
+                return new Tuple2<Integer,Rating>(rating.product(),rating);
+            }
+        });
+
+        JavaPairRDD<Integer,Integer> movie_ratings_count =movie_ratings.mapToPair(new PairFunction<Tuple2<Integer, Rating>, Integer, Integer>() {
+            @Override
+            public Tuple2<Integer, Integer> call(Tuple2<Integer, Rating> integerRatingTuple2) throws Exception {
+                return new Tuple2<Integer, Integer>(integerRatingTuple2._1(), Integer.valueOf(1));
+            }
+        }).reduceByKey(new Function2<Integer, Integer, Integer>() {
+            @Override
+            public Integer call(Integer integer, Integer integer2) throws Exception {
+                return integer+integer2;
+            }
+        });
+
+        return null;*/
 
 
        /* JavaPairRDD<Tuple2<Integer,Integer>,Double> predicted_rdd=JavaPairRDD.fromJavaRDD(
@@ -148,8 +187,6 @@ public class ModelBuilding implements Serializable{
                         }));*/
 
 
-
-    }
 
 
 
@@ -242,7 +279,7 @@ public class ModelBuilding implements Serializable{
     }*/
 
 
-}
+
 
 
 

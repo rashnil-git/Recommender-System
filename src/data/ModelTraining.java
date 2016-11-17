@@ -14,6 +14,8 @@ import java.io.Serializable;
 
 /**
  * Created by Rash on 13-11-2016.
+ * Train the model using small dataset of MovieLens
+ * get the best rank value which gives min RMSE value
  */
 public class ModelTraining implements Serializable {
 
@@ -40,17 +42,12 @@ public class ModelTraining implements Serializable {
 
     public String returnBestRank(int [] rank){
 
+        //Define the partitions for training and testing the model using different rank parameters.
         double test_fraction=0.4;
         double test_frac[]={1-test_fraction,test_fraction};
         double RMSE=1.0;
         double MSE=0;
         int _rank=0;
-        //split the ratings rdd into training and test based on test fraction.
-
-
-        //assign the respective partition to the test/train rdd
-        //this.training_set_rdd =split_rdds[0];
-        //this.test_set_rdd =split_rdds[1];
 
         for(int rank_i=0;rank_i<rank.length;rank_i++) {
 
@@ -110,12 +107,8 @@ public class ModelTraining implements Serializable {
         }
         String return_scores=RMSE+","+_rank;
 
+        //return the best RMSE and rank values
         return return_scores;
     }
-
-/*    public void returnBestLambda()
-    {
-
-    }*/
 
 }
