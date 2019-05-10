@@ -10,7 +10,7 @@ Below is the approach followed:
 
 1. Take the 100K MovieLens Dataset to train the model 
 2. Use different rank values and get the best model with RMSE value.
-3. Use this rank and default iteration of 20 to build the model using larger data set of 22 million users.
+3. Use this rank and default iteration of 20 to build the model using larger data set of 22 million ratings and 130K Users.
 4. Create new user and assign few ratings with this users id.
 5. train the model with new user ratings.
 6. predict new movies for this user based on past ratings.
